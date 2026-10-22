@@ -54,7 +54,7 @@ if a.native:
 report = {
     "generated_utc": datetime.now(timezone.utc).isoformat(),
     "passed": True, "images": images,
-    "host_tests": ["11 C verifier cases", "monitor path/network/policy/environment input tests", "dependency lifecycle tests", "delayed/idle/malformed control packets, glibc and musl"],
+    "host_tests": ["C verifier authentication, epoch and file-type rejection cases", "monitor path/network/policy/environment input tests", "dependency lifecycle tests", "delayed/idle/malformed control packets, glibc and musl"],
     "qemu_results": results,
     "scope": "TCG/OVMF emulation; signed boot witness, not the container host OS",
 }
@@ -76,7 +76,7 @@ lines += ["", "| QEMU scenario | Result |", "|---|---|"]
 for result in results:
     lines.append(f"| {result['case']} | PASS |")
 lines += [
-    "", "The eleven C verifier cases and monitor input tests also passed.", "",
+    "", "The C verifier rejection cases and monitor input tests also passed.", "",
     "Serial transcripts: `qemu-*.log`. Individual evidence: `result-*.json`.", "",
     "Scope: QEMU TCG with OVMF Secure Boot. The system payload is a boot witness.",
     "This does not establish physical hardware compatibility, KVM performance,",

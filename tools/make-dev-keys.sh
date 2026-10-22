@@ -25,9 +25,15 @@ fi
 openssl pkey -in release.key -pubout -out release.pub
 python3 - <<'PY'
 from pathlib import Path
+import json
+policy = json.loads(Path('/src/boot/image-policy.json').read_text())
+floor = policy['minimum_security_epoch']
+if type(floor) is not int or not 1 <= floor < 2**64 or policy['format'] != 2:
+    raise ValueError('invalid embedded image policy')
 pem = Path("release.pub").read_text()
 Path("release-key.h").write_text(
     "/* Generated public key, embedded in signed ROMMON. */\n"
+    f"#define FCR_MIN_SECURITY_EPOCH {floor}ULL\n"
     "static const char release_key_pem[] =\n" +
     "".join('"' + line + '\\n"\n' for line in pem.splitlines()) + ";\n")
 PY

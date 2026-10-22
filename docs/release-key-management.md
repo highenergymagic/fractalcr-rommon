@@ -10,7 +10,7 @@ sbsigntool, efitools and faketime.
 Create the vault on the offline station, outside the source checkout:
 
 ```
-python3 tools/release.py init --vault /offline/fractal-2026 --name release-2026
+python3 tools/release.py init --vault /offline/fractal-2026 --name release-2026 --minimum-security-epoch 1
 python3 tools/release.py verify-vault --vault /offline/fractal-2026
 ```
 
@@ -94,8 +94,18 @@ substitute its files. Retain the signed package and audit log with the release.
 Rotating only the outer release key does not retire the old signed ROMMON.
 Revoking its firmware signer in dbx closes that replay path; retiring the old
 KEK and PK also removes its authority to update firmware trust. A same-key older
-system release remains acceptable under the v1 image format. Per-release version
-rollback prevention is not implied by key rotation.
+system release is acceptable only when its signed v2 security epoch meets the
+ROMMON's compiled minimum. To retire vulnerable releases, advance the minimum
+when creating a new vault, rebuild ROMMON, sign the fixed system at that epoch
+(`sign --security-epoch N`), qualify recovery, and complete firmware revocation.
+The signer defaults to the vault's floor and records the epoch in its receipt.
+Rotation refuses to lower the floor. Releases in the same epoch remain
+interchangeable; no writable automatic boot counter is claimed.
+
+Legacy v1 trust profiles may be used only as the old identity for `rotation`.
+They cannot sign or build new v2 releases. Generate a new v2 vault rather than
+editing the old trust manifest to conceal its provenance. Until old ROMMON
+signers are revoked, older signed ROMMONs can still boot older system images.
 
 The [UEFI Secure Boot specification](https://uefi.org/specs/UEFI/2.10/32_Secure_Boot_and_Driver_Signing.html)
 defines authenticated PK/KEK/db/dbx updates. `boot/tests/test-release.py` tests

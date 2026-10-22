@@ -14,7 +14,7 @@ password=ROOT/'passphrase';password.write_text('disposable-test-only-passphrase-
 checks=[]
 def check(s):checks.append(s);print('PASS '+s,flush=True)
 for name in ('old','new'):
-    call('init','--vault',ROOT/name,'--name',name,'--password-file',password)
+    call('init','--vault',ROOT/name,'--name',name,'--password-file',password,'--minimum-security-epoch',1 if name=='old' else 2)
     call('verify-vault','--vault',ROOT/name,'--password-file',password)
     call('prepare-trust','--public',ROOT/name/'public','--destination',ROOT/(name+'-build'))
     assert not list((ROOT/(name+'-build')).glob('*.key'))
@@ -46,6 +46,7 @@ check('offline PE signatures preserve the reviewed image and reject wrong review
 witness=Path('/boot-work/build/kernel-witness/arch/x86/boot/bzImage')
 call('sign','--vault',ROOT/'new','--password-file',password,'--kind','system','--input',witness,'--expected-sha256',hashlib.sha256(witness.read_bytes()).hexdigest(),'--output',EVIDENCE/'system.bin')
 call('verify','--public',ROOT/'new/public','--kind','system','--input',EVIDENCE/'system.bin','--unsigned',witness)
+call('sign','--vault',ROOT/'new','--password-file',password,'--kind','system','--input',witness,'--expected-sha256',hashlib.sha256(witness.read_bytes()).hexdigest(),'--security-epoch',1,'--output',ROOT/'retired.bin',ok=False)
 bad=bytearray((EVIDENCE/'system.bin').read_bytes());bad[200]^=1;(ROOT/'tampered.bin').write_bytes(bad)
 call('verify','--public',ROOT/'new/public','--kind','system','--input',ROOT/'tampered.bin','--unsigned',witness,ok=False)
 check('system signing and verification enforce both PE and release-envelope authenticity')
@@ -54,12 +55,27 @@ for name in ('old','new'):
     subprocess.run(['gcc','-Os','-DROMMON_HOST_TEST','-I'+str(ROOT/(name+'-build')),'-I/src/service',str(SRC/'boot/rommon/rommon.c'),str(SRC/'boot/rommon/monitor.c'),str(SRC/'service/control.c'),str(SRC/'service/logging.c'),str(SRC/'service/supervisor.c'),'-lcrypto','-o',str(binary)],check=True)
     key=serialization.load_pem_private_key((ROOT/name/'release.encrypted.pem').read_bytes(),password.read_bytes())
     data=b'MZ'+b'offline trust witness'*100
-    (ROOT/(name+'.bin')).write_bytes(data+key.sign(b'FractalCR system image v1\n'+data,padding.PKCS1v15(),hashes.SHA256())+b'FCRBIN01')
+    data+=(1 if name=='old' else 2).to_bytes(8,'big')
+    (ROOT/(name+'.bin')).write_bytes(data+key.sign(b'FractalCR system image v2\n'+data,padding.PKCS1v15(),hashes.SHA256())+b'FCRBIN02')
 for trust in ('old','new'):
     for image in ('old','new'):
         r=subprocess.run(['/tmp/release-verifier-'+trust,'--verify',str(ROOT/(image+'.bin'))],capture_output=True)
         assert (r.returncode==0)==(trust==image)
 check('real ROMMON verifier accepts its embedded release key and rejects the retired or unrelated key')
+key=serialization.load_pem_private_key((ROOT/'new/release.encrypted.pem').read_bytes(),password.read_bytes())
+data=b'MZ'+b'retired epoch witness'*100+(1).to_bytes(8,'big')
+(ROOT/'retired.bin').write_bytes(data+key.sign(b'FractalCR system image v2\n'+data,padding.PKCS1v15(),hashes.SHA256())+b'FCRBIN02')
+assert subprocess.run(['/tmp/release-verifier-new','--verify',str(ROOT/'retired.bin')],capture_output=True).returncode!=0
+call('rotation','--vault',ROOT/'new','--password-file',password,'--new-public',ROOT/'old/public','--output',ROOT/'downgrade',ok=False)
+check('signer and real ROMMON enforce a raised epoch floor; rotation cannot lower it')
+# A legacy profile can authorize migration but cannot build or sign v2 images.
+profile_path=ROOT/'old/public/trust.json'
+profile=json.loads(profile_path.read_text());legacy=dict(profile,format=1);legacy.pop('minimum_security_epoch')
+profile_path.write_text(json.dumps(legacy))
+call('prepare-trust','--public',ROOT/'old/public','--destination',ROOT/'legacy-build',ok=False)
+call('rotation','--vault',ROOT/'old','--password-file',password,'--new-public',ROOT/'new/public','--output',ROOT/'legacy-rotation')
+profile_path.write_text(json.dumps(profile))
+check('legacy trust permits migration only, without silently accepting legacy image policy')
 rotation=EVIDENCE/'rotation'
 call('rotation','--vault',ROOT/'old','--password-file',password,'--new-public',ROOT/'new/public','--output',rotation)
 for name,var,append in [('01-db-add-new','db',True),('02-KEK-add-new','KEK',True),('03-dbx-revoke-old','dbx',True),('04-KEK-retire-old','KEK',False),('05-PK-replace','PK',False)]:

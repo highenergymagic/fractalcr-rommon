@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "base": "6.12.112-cip33",
+  "stable_updates_through": "6.12.114",
+  "local_suffix": "-security1",
+  "scope": "Stable updates except version label and excluded Renesas ARM/DRM files documented below. Not an official newer CIP release.",
+  "patches": [
+    {
+      "file": "patch-6.12.112-113.patch.gz",
+      "sha256": "dcfbd0c5c1ee83e24942329b7307ad4ce84c957b5474f43ba133abc380f6770c",
+      "upstream_url": "https://cdn.kernel.org/pub/linux/kernel/v6.x/incr/patch-6.12.112-113.xz",
+      "upstream_sha256": "430b2a299a3751271f2b9aa41aa48139120932ddcd8aad42ae11be0fbde73c9f",
+      "excluded_files": [
+        "Makefile"
+      ]
+    },
+    {
+      "file": "patch-6.12.113-114.patch.gz",
+      "sha256": "3506284bef108ae0c473c5e526e5a79b25b98515645f5ac71379aea625034ae9",
+      "upstream_url": "https://cdn.kernel.org/pub/linux/kernel/v6.x/incr/patch-6.12.113-114.xz",
+      "upstream_sha256": "f9b804b2e7912ba4dc620f7f0de21f7d711d68aa6f29373da5632d456c6b43f9",
+      "excluded_files": [
+        "Makefile",
+        "drivers/irqchip/irq-renesas-rzg2l.c",
+        "drivers/gpu/drm/renesas/rz-du/rzg2l_mipi_dsi.c"
+      ],
+      "exclusion_reasons": {
+        "Makefile": "Preserve the actual CIP source base version",
+        "drivers/irqchip/irq-renesas-rzg2l.c": "Conflicting CIP ARM changes; x86-64 target only",
+        "drivers/gpu/drm/renesas/rz-du/rzg2l_mipi_dsi.c": "Already applied in CIP; DRM disabled on this appliance"
+      }
+    }
+  ]
+}

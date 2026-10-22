@@ -5,19 +5,24 @@ export SOURCE_DATE_EPOCH=1792454400
 export KBUILD_BUILD_TIMESTAMP="Tue Oct 20 00:00:00 UTC 2026"
 export KBUILD_BUILD_USER=fractalcr KBUILD_BUILD_HOST=builder KBUILD_BUILD_VERSION=1
 export FORCE_UNSAFE_CONFIGURE=1
+export BR2_DL_DIR=/work/downloads/buildroot-packages
 JOBS=${JOBS:-2}
 cd /work
 mkdir -p build sources downloads artifacts
-rsync -a --delete --exclude=.git --exclude=__pycache__ /src/boot/ boot/
-rsync -a --delete --exclude=.git --exclude=__pycache__ /src/service/ boot/rommon/service/
+rsync -ac --delete --exclude=.git --exclude=__pycache__ /src/boot/ boot/
+rsync -ac --delete --exclude=.git --exclude=__pycache__ /src/service/ boot/rommon/service/
 chmod +x boot/buildroot/board/prune-rommon.sh
 bash boot/tools/fetch.sh
+python3 /src/boot/tools/kernel-security.py
+kernel_source=/work/build/linux-security-source
 bash boot/tools/make-dev-keys.sh
 
 make -C sources/buildroot O=/work/build/rommon-root \
     BR2_EXTERNAL=/work/boot/buildroot fractalcr_rommon_defconfig
 # Local source and the embedded public key may have changed between builds.
-make -C sources/buildroot O=/work/build/rommon-root rommon-rebuild
+# Local-package rsync also uses timestamps. Recreate this small package so a
+# same-sized source edit in a deterministic snapshot cannot preserve old code.
+make -C sources/buildroot O=/work/build/rommon-root rommon-dirclean
 make -C sources/buildroot O=/work/build/rommon-root busybox-reconfigure
 make -C sources/buildroot O=/work/build/rommon-root -j"$JOBS"
 
@@ -41,23 +46,31 @@ build_kernel() {
     local output=/work/build/kernel-"$name"
     mkdir -p "$output"
     cp "boot/kernel/$name.config" "$output/.config"
-    sources/linux/scripts/config --file "$output/.config" \
+    "$kernel_source/scripts/config" --file "$output/.config" \
         --set-str INITRAMFS_SOURCE "$initramfs" \
         --set-str SYSTEM_TRUSTED_KEYS /work/build/keys/firmware.crt \
-        --set-str LOCALVERSION "-fractalcr-$name"
-    make -C sources/linux O="$output" ARCH=x86_64 CROSS_COMPILE="$toolchain" olddefconfig
+        --set-str LOCALVERSION "-security1-fractalcr-$name"
+    make -C "$kernel_source" O="$output" ARCH=x86_64 CROSS_COMPILE="$toolchain" olddefconfig
     for option in EFI_STUB KEXEC_FILE KEXEC_SIG_FORCE KEXEC_BZIMAGE_VERIFY_SIG \
         SYSTEM_TRUSTED_KEYRING LOCK_DOWN_KERNEL_FORCE_INTEGRITY; do
         grep -qx "CONFIG_${option}=y" "$output/.config" || {
             echo "Required kernel option missing: $option" >&2; exit 1;
         }
     done
+    if [[ "$name" == rommon ]]; then
+        for option in SLAB_FREELIST_RANDOM SLAB_FREELIST_HARDENED HARDENED_USERCOPY \
+            FORTIFY_SOURCE INIT_ON_ALLOC_DEFAULT_ON LIST_HARDENED SECURITY_DMESG_RESTRICT; do
+            grep -qx "CONFIG_${option}=y" "$output/.config" || {
+                echo "Required hardening option missing: $option" >&2; exit 1;
+            }
+        done
+    fi
     for option in KEXEC VT VGA_CONSOLE DRM FB; do
         if grep -qx "CONFIG_${option}=y" "$output/.config"; then
             echo "Forbidden kernel option enabled: $option" >&2; exit 1
         fi
     done
-    make -C sources/linux O="$output" ARCH=x86_64 CROSS_COMPILE="$toolchain" -j"$JOBS" bzImage
+    make -C "$kernel_source" O="$output" ARCH=x86_64 CROSS_COMPILE="$toolchain" -j"$JOBS" bzImage
 }
 build_kernel rommon /work/build/rommon-root/images/rootfs.cpio
 build_kernel witness /work/build/witness.list

@@ -579,7 +579,7 @@ static void copy_image(const char *source, const char *destination)
     if (obtain(source, input, sizeof(input))) { puts("% Source unavailable."); return; }
     int in = open(input, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
     struct stat st;
-    if (in < 0 || fstat(in, &st) || !S_ISREG(st.st_mode) || st.st_size <= 264 ||
+    if (in < 0 || fstat(in, &st) || !S_ISREG(st.st_mode) || st.st_size <= 272 ||
         st.st_size > (off_t)MAX_TRANSFER) {
         if (in >= 0) close(in);
         puts("% Invalid source or exceeds 512 MiB recovery-copy limit.");

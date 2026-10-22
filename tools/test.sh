@@ -13,7 +13,7 @@ gcc -DFCR_ROMMON -Wall -Wextra -Werror -I/src/service /src/service/test-control.
 /work/build/rommon-root/host/bin/x86_64-linux-gcc -static -DFCR_ROMMON -Wall -Wextra -Werror \
     -I/src/service /src/service/test-control.c /src/service/graph.c /src/service/supervisor.c -o /tmp/test-control-musl
 /tmp/test-control-musl | tee artifacts/control-musl-tests.log
-rsync -a /src/boot/ boot/
+rsync -ac /src/boot/ boot/
 python3 boot/tests/test-qemu-process.py
 python3 boot/tests/test-verifier.py | tee artifacts/verifier-tests.log
 gcc -Os -Wall -Wextra -Werror -I/src/service boot/tests/test-monitor.c \

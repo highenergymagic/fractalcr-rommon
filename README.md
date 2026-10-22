@@ -2,7 +2,8 @@
 
 The active implementation is a signed Buildroot ROM Monitor with a CIP kernel,
 serial recovery CLI, USB storage and Ethernet/TFTP recovery. The signed
-`system.bin` is still a tiny embedded-root boot witness, not the OE container OS.
+`system.bin` produced by this component is a tiny embedded-root boot witness.
+The [OE container OS](../os/README.md) produces the full appliance image separately.
 
 The [ISR4331 research and recovery contract](docs/isr4331-research.md) explains
 the Cisco source evidence, command wording, boot flow, signature checks,
@@ -172,8 +173,10 @@ the matching serial logs for the actual tested artifact hashes.
 
 ## Build inputs and remaining scope
 
-Pinned core inputs: Buildroot 2025.02.12, CIP Linux 6.12.112-cip33 and the Bootlin
-x86-64 musl toolchain selected by that Buildroot release. Source downloads have
+Pinned core inputs: Buildroot 2025.02.18, CIP Linux 6.12.112-cip33 and Buildroot's
+source-built musl 1.2.6 toolchain with its maintained patches. The external tree
+pins OpenSSL 3.5.9 to include security fixes newer than Buildroot's release.
+Source downloads have
 SHA-256 pins. The Debian base image is digest-pinned; its package repositories
 are not snapshot-pinned. Rebuilding the builder from its Dockerfile can therefore
 change dependencies. The [reproducibility workflow](../service/README.md) records

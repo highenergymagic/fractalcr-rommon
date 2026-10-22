@@ -2,6 +2,11 @@
 set -euo pipefail
 cd /work
 mkdir -p artifacts
+# Buildroot has no installed package database. Preserve its resolved package,
+# license and source inventory alongside the firmware for advisory review.
+make -s -C sources/buildroot O=/work/build/rommon-root show-info > artifacts/buildroot-packages.json
+cp boot/sources.json artifacts/boot-sources.json
+cp boot/kernel/security/kernel-security.json artifacts/kernel-security.json
 # The ROMMON kernel requires this PE signature at kexec_file_load.
 if [[ "${FCR_SIGNING_MODE:-development}" != external ]]; then
 bash /src/boot/tools/sign-pe.sh --key build/keys/firmware.key --cert build/keys/firmware.crt \

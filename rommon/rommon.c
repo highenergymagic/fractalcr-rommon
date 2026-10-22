@@ -27,9 +27,12 @@
 
 #define MAX_IMAGE (512UL * 1024 * 1024)
 #define SIG_LEN 256
-#define TRAILER_LEN (SIG_LEN + 8)
-static const unsigned char magic[8] = "FCRBIN01";
-static const char domain[] = "FractalCR system image v1\n";
+#define TRAILER_LEN (8 + SIG_LEN + 8)
+#ifndef FCR_MIN_SECURITY_EPOCH
+#define FCR_MIN_SECURITY_EPOCH 1ULL
+#endif
+static const unsigned char magic[8] = "FCRBIN02";
+static const char domain[] = "FractalCR system image v2\n";
 static const char command_line[] = "console=ttyS0,115200 rdinit=/init panic=-1 quiet loglevel=0";
 static const char secure_var[] = "/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c";
 
@@ -113,9 +116,16 @@ int verified_image(const char *path)
         have += (size_t)n;
     }
     if (read(in, buf, 1) != 0 ||
-        memcmp(trailer + SIG_LEN, magic, sizeof(magic)) ||
-        EVP_DigestVerifyFinal(md, trailer, SIG_LEN) != 1) {
+        memcmp(trailer + 8 + SIG_LEN, magic, sizeof(magic)) ||
+        EVP_DigestVerifyUpdate(md, trailer, 8) != 1 ||
+        EVP_DigestVerifyFinal(md, trailer + 8, SIG_LEN) != 1) {
         puts("% AUTHENTICATION FAILED: image rejected.");
+        goto done;
+    }
+    uint64_t epoch = 0;
+    for (unsigned i = 0; i < 8; i++) epoch = (epoch << 8) | trailer[i];
+    if (epoch < FCR_MIN_SECURITY_EPOCH) {
+        puts("% SECURITY POLICY: image security epoch is below this ROMMON's minimum.");
         goto done;
     }
     if (fcntl(out, F_ADD_SEALS, F_SEAL_WRITE | F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL) ||

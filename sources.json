@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "buildroot": {
+    "version": "2025.02.12",
+    "url": "https://buildroot.org/downloads/buildroot-2025.02.12.tar.xz",
+    "sha256": "9c8b7a2a14c74c934ed656988c473b1c01d869cebb5b00525104cc8a65381fb4"
+  },
+  "linux": {
+    "version": "6.12.112-cip33",
+    "url": "https://cdn.kernel.org/pub/linux/kernel/projects/cip/6.12/linux-cip-6.12.112-cip33.tar.xz",
+    "sha256": "522caf8dd5a07904705691ba07440d8a557d74eab39a938b95b0c69ad27eed3a"
+  }
+}

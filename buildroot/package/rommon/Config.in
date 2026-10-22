@@ -1,0 +1,6 @@
+config BR2_PACKAGE_ROMMON
+	bool "FractalCR ROM Monitor"
+	select BR2_PACKAGE_OPENSSL
+	select BR2_PACKAGE_LIBOPENSSL
+	help
+	  Supervised serial recovery services with an embedded release key and verified kexec.

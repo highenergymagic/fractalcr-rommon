@@ -1,0 +1,3 @@
+# Transitive dependencies come from the signed Debian snapshot (apt); no pip
+# dependency resolution. pip check validates their compatibility in the builder.
+virt-firmware==24.2 --hash=sha256:b76a8a2d120efa3eb7f3e54bcb40e00845354bad95f20647b79d204dea534433

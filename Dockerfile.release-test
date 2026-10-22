@@ -1,0 +1,4 @@
+ARG BOOT_BUILDER
+FROM ${BOOT_BUILDER}
+RUN apt-get update && apt-get install -y --no-install-recommends gnu-efi=3.0.15-1 \
+    && rm -rf /var/lib/apt/lists/*

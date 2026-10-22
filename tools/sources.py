@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -30,10 +31,23 @@ def extract_source(tar, destination):
             link = (path.parent if member.issym() else root) / member.linkname
             if Path(member.linkname).is_absolute() or not link.resolve().is_relative_to(root):
                 raise UnsafeArchive('archive link escapes extraction directory')
-        member.mode &= 0o777
-        tar.extract(member, root, set_attrs=False)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if member.isdir():
+            path.mkdir(exist_ok=True)
+        elif member.issym():
+            path.symlink_to(member.linkname)
+        elif member.islnk():
+            # Reject forward links instead of recursively extracting a later,
+            # not-yet-validated tar member through tarfile's link machinery.
+            if link.is_symlink() or not link.is_file():
+                raise UnsafeArchive('hardlink target must be an extracted regular file')
+            os.link(link, path)
+        else:
+            with tar.extractfile(member) as src, path.open('xb') as dst:
+                shutil.copyfileobj(src, dst)
         if not member.issym():
-            path.chmod(member.mode | (0o700 if member.isdir() else 0o600))
+            path.chmod((member.mode & 0o777) | (0o700 if member.isdir() else 0o600))
+            os.utime(path, (member.mtime, member.mtime))
 
 
 def digest(path):

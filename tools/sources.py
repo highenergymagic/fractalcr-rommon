@@ -11,6 +11,31 @@ import tempfile
 import urllib.request
 
 
+class UnsafeArchive(ValueError):
+    pass
+
+
+def extract_source(tar, destination):
+    """Data-only extraction, including on Debian's pre-filter Python 3.11."""
+    root = Path(destination).resolve()
+    for member in tar:
+        # Check immediately before each extraction so preceding symlinks are
+        # resolved. No special files, absolute names, or escaping link targets.
+        path = root / member.name
+        if Path(member.name).is_absolute() or not path.resolve().is_relative_to(root):
+            raise UnsafeArchive('archive path escapes extraction directory')
+        if not (member.isfile() or member.isdir() or member.issym() or member.islnk()):
+            raise UnsafeArchive('special file in source archive')
+        if member.issym() or member.islnk():
+            link = (path.parent if member.issym() else root) / member.linkname
+            if Path(member.linkname).is_absolute() or not link.resolve().is_relative_to(root):
+                raise UnsafeArchive('archive link escapes extraction directory')
+        member.mode &= 0o777
+        tar.extract(member, root, set_attrs=False)
+        if not member.issym():
+            path.chmod(member.mode | (0o700 if member.isdir() else 0o600))
+
+
 def digest(path):
     with path.open('rb') as stream:
         return hashlib.file_digest(stream, 'sha256').hexdigest()
@@ -46,7 +71,7 @@ def prepare(name, pin, work, download=True):
     # Validate extraction before touching a previously working cache.
     with tempfile.TemporaryDirectory(dir=sources, prefix=name + '.pending-') as tmp:
         with tarfile.open(archive) as tar:
-            tar.extractall(tmp, filter='data')
+            extract_source(tar, tmp)
         roots = list(Path(tmp).iterdir())
         if len(roots) != 1 or not roots[0].is_dir() or roots[0].is_symlink():
             raise ValueError('source archive must have one root directory')

@@ -16,7 +16,7 @@ class UnsafeArchive(ValueError):
     pass
 
 
-def extract_source(tar, destination):
+def extract_source(tar, destination, allowed_absolute_links=()):
     """Data-only extraction, including on Debian's pre-filter Python 3.11."""
     root = Path(destination).resolve()
     for member in tar:
@@ -29,7 +29,8 @@ def extract_source(tar, destination):
             raise UnsafeArchive('special file in source archive')
         if member.issym() or member.islnk():
             link = (path.parent if member.issym() else root) / member.linkname
-            if Path(member.linkname).is_absolute() or not link.resolve().is_relative_to(root):
+            allowed_leaf = member.issym() and (member.name, member.linkname) in allowed_absolute_links
+            if not allowed_leaf and (Path(member.linkname).is_absolute() or not link.resolve().is_relative_to(root)):
                 raise UnsafeArchive('archive link escapes extraction directory')
         path.parent.mkdir(parents=True, exist_ok=True)
         if member.isdir():
@@ -85,7 +86,11 @@ def prepare(name, pin, work, download=True):
     # Validate extraction before touching a previously working cache.
     with tempfile.TemporaryDirectory(dir=sources, prefix=name + '.pending-') as tmp:
         with tarfile.open(archive) as tar:
-            extract_source(tar, tmp)
+            # Buildroot ships one absolute link as target-rootfs skeleton data.
+            # Preserve that exact leaf, but never traverse it during extraction.
+            allowed = {(f"buildroot-{pin['version']}/package/skeleton-init-openrc/skeleton/etc/runlevels/default/sysv-rcs",
+                        '/etc/init.d/sysv-rcs')} if name == 'buildroot' else ()
+            extract_source(tar, tmp, allowed)
         roots = list(Path(tmp).iterdir())
         if len(roots) != 1 or not roots[0].is_dir() or roots[0].is_symlink():
             raise ValueError('source archive must have one root directory')

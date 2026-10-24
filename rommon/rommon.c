@@ -1,6 +1,4 @@
-#ifndef ROMMON_HOST_TEST
 #include "release.h"
-#endif
 /*
  * FractalCR ROM Monitor verifier. No login shell and no unsigned boot path.
  * The release key is a generated C header inside the signed ROMMON image.

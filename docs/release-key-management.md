@@ -4,7 +4,9 @@ Development and release builds use separate trust and Docker volumes. Release
 builders receive public certificates and keys only. The offline signing station
 holds encrypted PKCS#8 private keys; decrypted PE-signing material is passed to
 the signer through a sealed memory file descriptor and is never written to the
-builder volume. Tools run on Linux with Python cryptography, OpenSSL,
+builder volume. Run commands from a recursive integration checkout. This is an optional
+operator-managed production-signing procedure; normal development builds do not
+require a vault or HSM. Tools run on Linux with Python cryptography, OpenSSL,
 sbsigntool, efitools and faketime.
 
 Create the vault on the offline station, outside the source checkout:
@@ -22,13 +24,14 @@ Only the `public/` subdirectory goes to the build workstation. Record and compar
 the firmware-certificate and release-key fingerprints through a separate trusted
 channel when transferring the bundle.
 
-Public-only builds on carbon:
+Public-only builds on your Linux SSH host (replace `YOUR_BUILD_HOST` and the
+example `C:\release-public` path with your public trust directory):
 
 ```powershell
-.\tools\remote-build.ps1 -Stage boot -BuildAction Build -SigningMode external -PublicTrustDirectory C:\release-public
-.\tools\remote-build.ps1 -Stage boot -Action Export -SigningMode external -PublicTrustDirectory C:\release-public
-.\tools\remote-build.ps1 -Stage os -BuildAction Build -SigningMode external -PublicTrustDirectory C:\release-public
-.\tools\remote-build.ps1 -Stage os -Action Export -SigningMode external -PublicTrustDirectory C:\release-public
+.\tools\remote-build.ps1 -BuildHost YOUR_BUILD_HOST -Stage boot -BuildAction Build -SigningMode external -PublicTrustDirectory C:\release-public
+.\tools\remote-build.ps1 -BuildHost YOUR_BUILD_HOST -Stage boot -Action Export -SigningMode external -PublicTrustDirectory C:\release-public
+.\tools\remote-build.ps1 -BuildHost YOUR_BUILD_HOST -Stage os -BuildAction Build -SigningMode external -PublicTrustDirectory C:\release-public
+.\tools\remote-build.ps1 -BuildHost YOUR_BUILD_HOST -Stage os -Action Export -SigningMode external -PublicTrustDirectory C:\release-public
 ```
 
 Wait for each remote build to finish before exporting or starting the next.
@@ -114,7 +117,7 @@ failures, real ROMMON key rejection and the update signatures. With
 `--qemu-rotation` and gnu-efi installed, it applies the updates in disposable
 OVMF and checks retirement of the old firmware signer.
 
-On carbon, `bash tools/test-release.sh /path/to/new-evidence-directory` builds
+On a Linux Docker host with passwordless `doas`, `bash tools/test-release.sh /path/to/new-evidence-directory` builds
 the test helper image and runs this qualification without network access.
 Disposable encrypted vaults and passphrases stay in tmpfs and disappear when
 the container exits. The evidence directory contains only public trust, signed

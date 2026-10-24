@@ -1,32 +1,35 @@
-# Boot and recovery milestone
+# ROM Monitor: build and recovery
 
-The active implementation is a signed Buildroot ROM Monitor with a CIP kernel,
+This component is a signed Buildroot ROM Monitor with a CIP kernel,
 serial recovery CLI, USB storage and Ethernet/TFTP recovery. The signed
 `system.bin` produced by this component is a tiny embedded-root boot witness.
-The [OE container OS](../os/README.md) produces the full appliance image separately.
+The [OE container OS](https://github.com/highenergymagic/fractalcr/blob/main/os/README.md) produces the full appliance image separately.
 
 The [ISR4331 research and recovery contract](docs/isr4331-research.md) explains
 the Cisco source evidence, command wording, boot flow, signature checks,
 recovery procedures and intentional differences. [FORMAT.md](FORMAT.md)
 specifies our image envelope and trust chain.
 
-Validated on 2026-10-20: eleven Linux QEMU/OVMF security and recovery scenarios,
-native Windows QEMU autoboot, eleven verifier cases, and monitor input tests.
+Use a recursive [integration checkout](https://github.com/highenergymagic/fractalcr)
+and run commands from its root. This repository alone does not include the shared
+supervisor or integration build tools. A **boot witness** is a tiny test payload
+that proves authenticated handoff; it does not contain Docker or the appliance CLI.
+Use the OE system image for an actual appliance.
 
-| Artifact | Size |
-|---|---:|
-| Signed `rommon.efi`, including drivers and recovery userland | 7,586,744 bytes (7.24 MiB) |
-| Signed boot-witness `system.bin` | 3,353,432 bytes (3.20 MiB) |
+Artifact sizes and test results depend on the build. Consult the generated
+`validation.md` and hash-bound JSON reports in the exported artifact directory,
+not a historical size table.
 
 ## Build and run
 
-From Windows, using Docker on `carbon` through SSH and passwordless `doas`:
+From Windows, using your Linux Docker host through SSH and passwordless `doas`
+(replace `YOUR_BUILD_HOST`; see [build prerequisites](https://github.com/highenergymagic/fractalcr/blob/main/docs/building.md)):
 
 ```powershell
-.\boot\build.ps1
-.\tools\remote-build.ps1 -Action Status
+.\boot\build.ps1 -BuildHost YOUR_BUILD_HOST
+.\tools\remote-build.ps1 -BuildHost YOUR_BUILD_HOST -Action Status
 # After the remote build and tests finish:
-.\boot\build.ps1 -Action Export
+.\boot\build.ps1 -BuildHost YOUR_BUILD_HOST -Action Export
 .\boot\run.ps1
 ```
 
@@ -41,9 +44,9 @@ The named Docker volume `fractalcr-boot-work` retains sources, compiler outputs
 and generated development signing keys. Private keys are never exported.
 Tests enroll the development firmware certificate only in disposable OVMF
 variables; they do not modify the host firmware.
-The first build on carbon generates new development keys in that host's volume.
-Old local artifacts remain in `out/boot`; to run them explicitly, use
-`.\boot\run.ps1 -ArtifactDirectory .\out\boot`.
+The first build generates development keys in that host's volume. To use a
+separate exported set, pass `-ArtifactDirectory PATH` to `boot/run.ps1`. The
+wrapper's default export directory is `out/carbon/boot` regardless of host name.
 
 The interactive VM keeps its changes in `flash-interactive.img`. Reset works
 inside the VM, and `sync` persists across subsequent launches. `-Fresh` replaces
@@ -61,11 +64,10 @@ rommon 1 > showmon
 rommon 2 > dev
 rommon 3 > dir bootflash:
 rommon 4 > verify bootflash:system.bin
-rommon 5 > boot bootflash:tampered.bin
-rommon 6 > boot bootflash:system.bin
+rommon 5 > boot bootflash:system.bin
 ```
 
-The altered image must be rejected. The valid image must reach
+The boot witness reaches
 `FRACTALCR_SYSTEM_BOOT_OK` and its embedded PID 1. `verify` alone checks the
 release envelope; boot also requires the kernel's PE signature check.
 
@@ -81,7 +83,7 @@ reset
 ignoring startup configuration for physical-console password/configuration
 recovery. Save with `sync` only when persistence is intended; otherwise the
 change lasts for this monitor session. See the
-[recovery procedure](../os/docs/aaa-and-management.md). Other register values
+[recovery procedure](https://github.com/highenergymagic/fractalcr/blob/main/os/docs/aaa-and-management.md). Other register values
 are unsupported.
 
 ## USB recovery
@@ -89,7 +91,7 @@ are unsupported.
 Attach a disposable recovery disk exported by the tests:
 
 ```powershell
-.\boot\run.ps1 -UsbImage .\out\boot\usb-usb-boot.img
+.\boot\run.ps1 -UsbImage .\out\carbon\boot\usb-usb-boot.img
 ```
 
 Then:
@@ -114,9 +116,9 @@ QEMU's user network can serve the exported image directory without opening
 host ports:
 
 ```powershell
-.\boot\run.ps1 -TftpRoot .\out\boot
+.\boot\run.ps1 -TftpRoot .\out\carbon\boot
 # An emulated Intel adapter:
-.\boot\run.ps1 -TftpRoot .\out\boot -NetworkAdapter e1000
+.\boot\run.ps1 -TftpRoot .\out\carbon\boot -NetworkAdapter e1000
 ```
 
 At the monitor:
@@ -163,10 +165,10 @@ Native Windows QEMU can independently boot the exported files:
 
 ```powershell
 python .\boot\tests\native-smoke.py
-python .\boot\tools\report.py --artifacts .\out\boot --native
+python .\boot\tools\report.py --artifacts .\out\carbon\boot --native
 ```
 
-The Linux tests use TCG, so the carbon Docker host does not need `/dev/kvm`, privileged
+The Linux tests use TCG, so the Docker build host does not need `/dev/kvm`, privileged
 containers or nested virtualization. Tests establish emulated hardware behavior,
 not physical NIC qualification or KVM acceleration. Consult `result-*.json` and
 the matching serial logs for the actual tested artifact hashes.
@@ -178,14 +180,14 @@ source-built musl 1.2.6 toolchain with its maintained patches. The external tree
 pins OpenSSL 3.5.9 to include security fixes newer than Buildroot's release.
 Source downloads have
 SHA-256 pins. The Debian base image is digest-pinned; its package repositories
-are not snapshot-pinned. Rebuilding the builder from its Dockerfile can therefore
-change dependencies. The [reproducibility workflow](../service/README.md) records
+are pinned to a dated Debian snapshot in `boot/debian.sources`. Changing that
+snapshot is an explicit source update. The [reproducibility workflow](https://github.com/highenergymagic/fractalcr-supervisor/blob/main/README.md) records
 and reuses the builder's immutable image ID and compares forced appliance builds
 byte for byte. It does not claim independent clean-room dependency reproduction.
 
 ROMMON includes built-in virtio-net, e1000/e1000e/igb/igc, r8169, USB host/mass
 storage, AHCI and NVMe drivers. No graphics console, loadable modules or Unix
-shell is included. The only BusyBox applets are the internal network helpers.
+shell is included. Recovery networking uses native socket and interface APIs; BusyBox is disabled.
 The host OS uses its own glibc-based OE userspace; ROMMON retains musl. Both
 compile the same small service supervisor. Recovery storage, networking,
 logging and console run as separate managed processes.
@@ -195,7 +197,8 @@ offline custody, public-only builds, signing, rotation and revocation.
 `confreg 0x2142` supports physical-console password recovery in the OE image
 while retaining mandatory image authentication.
 
-Not implemented: per-release rollback protection, a power-failure qualified
+Security epochs reject images below ROMMON's embedded floor; see [FORMAT.md](FORMAT.md).
+Not implemented: an automatically advancing rollback counter, a power-failure qualified
 A/B updater, ROMMON self-update and unattended OS installation.
 The OE image provides the management CLI,
 explicit datastore initialization, Docker and bundled Kata components.

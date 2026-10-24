@@ -1,5 +1,8 @@
 # ISR 4331 research and FractalCR recovery contract
 
+This is an engineering reference, not the first-boot guide. Use the
+[ROMMON guide](../README.md) for operational steps.
+
 Research date: 2026-10-20. This is a behavioral study and an independently
 implemented monitor, not Cisco firmware or a binary-compatible emulator.
 The implementation target is an x86-64 QEMU/KVM appliance with serial console.
@@ -83,7 +86,7 @@ actionable recovery prompt. A successful handoff ends the monitor's role.
 
 The monitor is a finite recovery command language. It does not launch a Unix
 shell, interpret shell metacharacters, require a Linux device path, or load the
-future OS's JSON startup configuration to bring up a recovery port.
+OS's JSON startup configuration to bring up a recovery port.
 
 Our implemented console vocabulary:
 
@@ -180,13 +183,12 @@ Set `ETHER_PORT`, `IP_ADDRESS`, `IP_SUBNET_MASK`, and, when needed,
 `DEFAULT_GATEWAY`. Set `TFTP_SERVER` and `TFTP_FILE` for the short `tftp:` form,
 or supply an IPv4 URL. Use ping to diagnose reachability, then boot or copy.
 There is no dependency on DHCP, DNS, a cloud service, a management web server,
-or the appliance's future container network.
+or the appliance's container network.
 
 TFTP is only transport. Downloaded bytes remain untrusted until signature
-verification succeeds. Downloads have a 128 MiB cap and a 120-second deadline;
-copy operations have the same size cap. This is a prototype memory budget,
-not a final limit for the future Docker/Kata image. Local direct boot currently
-allows larger images subject to RAM and the verifier's 512 MiB ceiling.
+verification succeeds. Downloads and recovery copies have a 512 MiB cap and
+network transfers have a 120-second deadline. Local verification uses the same
+512 MiB ceiling. These are implementation limits, not Cisco platform limits.
 
 ### Missing or damaged saved environment
 
@@ -216,7 +218,7 @@ boot modes only; they do not emulate Cisco baud-rate bits. `0x2142` now supplies
 a fixed recovery flag to the authenticated OS. It ignores startup configuration
 without deleting it, disables initial remote access, and permits physical-console
 credential repair. Restore 0x2102 for normal authenticated startup. See the
-[implemented recovery procedure](../../os/docs/aaa-and-management.md).
+[implemented recovery procedure](https://github.com/highenergymagic/fractalcr/blob/main/os/docs/aaa-and-management.md).
 The monitor does not support expanded packages, arbitrary environment variables,
 an interactive register questionnaire, IOS routing commands, debugger memory
 writes, USB Ethernet, exFAT/NTFS, IPv6 or DHCP.

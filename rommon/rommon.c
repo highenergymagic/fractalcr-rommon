@@ -1,3 +1,6 @@
+#ifndef ROMMON_HOST_TEST
+#include "release.h"
+#endif
 /*
  * FractalCR ROM Monitor verifier. No login shell and no unsigned boot path.
  * The release key is a generated C header inside the signed ROMMON image.
@@ -154,7 +157,7 @@ done:
     return ok ? out : -1;
 }
 
-void boot_image(int fd, int ignore_startup)
+void boot_image(int fd, int ignore_startup, const char *image)
 {
     if (secure_boot() != 1 && secure_boot_required()) {
         puts("% Secure Boot is not enabled; boot policy refuses handoff.");
@@ -163,9 +166,13 @@ void boot_image(int fd, int ignore_startup)
     if (secure_boot() != 1)
         puts("% Firmware trust is unavailable. Image signatures remain mandatory.");
     /* Kernel independently requires a trusted PE signature. No legacy fallback. */
-    char selected_command_line[256];
-    snprintf(selected_command_line, sizeof(selected_command_line), "%s%s", command_line,
-             ignore_startup ? " fcr.ignore_startup=1" : "");
+    char selected_command_line[1024], encoded[513];
+    size_t image_len = strlen(image);
+    if (image_len > 256) { puts("% Image reference is too long."); return; }
+    for (size_t i=0; i<image_len; i++) snprintf(encoded+2*i,3,"%02x",(unsigned char)image[i]);
+    encoded[2*image_len]=0;
+    snprintf(selected_command_line, sizeof(selected_command_line), "%s%s fcr.rommon=%s fcr.image_hex=%s", command_line,
+             ignore_startup ? " fcr.ignore_startup=1" : "", FCR_VERSION, encoded);
     if (ignore_startup) puts("% Configuration register 0x2142: startup configuration will be ignored.");
     if (syscall(SYS_kexec_file_load, fd, -1, strlen(selected_command_line)+1, selected_command_line,
                 KEXEC_FILE_NO_INITRAMFS) < 0) {

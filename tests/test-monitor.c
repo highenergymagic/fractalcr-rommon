@@ -3,7 +3,7 @@
 #include <assert.h>
 int secure_boot(void) { return 1; }
 int verified_image(const char *path) { (void)path; return -1; }
-void boot_image(int fd, int ignore_startup) { (void)fd; (void)ignore_startup; }
+void boot_image(int fd, int ignore_startup, const char *image) { (void)fd; (void)ignore_startup; (void)image; }
 int write_all(int fd, const void *p, size_t n) { (void)fd; (void)p; (void)n; return -1; }
 int main(void)
 {

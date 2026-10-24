@@ -11,6 +11,7 @@ cd /work
 mkdir -p build sources downloads artifacts
 rsync -ac --delete --exclude=.git --exclude=__pycache__ /src/boot/ boot/
 rsync -ac --delete --exclude=.git --exclude=__pycache__ /src/service/ boot/rommon/service/
+python3 /src/tools/version-metadata.py --output boot/rommon/service/release.h
 chmod +x boot/buildroot/board/prune-rommon.sh
 bash boot/tools/fetch.sh
 python3 /src/boot/tools/kernel-security.py
@@ -23,7 +24,6 @@ make -C sources/buildroot O=/work/build/rommon-root \
 # Local-package rsync also uses timestamps. Recreate this small package so a
 # same-sized source edit in a deterministic snapshot cannot preserve old code.
 make -C sources/buildroot O=/work/build/rommon-root rommon-dirclean
-make -C sources/buildroot O=/work/build/rommon-root busybox-reconfigure
 make -C sources/buildroot O=/work/build/rommon-root -j"$JOBS"
 
 toolchain=/work/build/rommon-root/host/bin/x86_64-buildroot-linux-musl-

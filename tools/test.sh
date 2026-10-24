@@ -20,13 +20,14 @@ gcc -Os -Wall -Wextra -Werror -I/src/service boot/tests/test-monitor.c \
     /src/service/control.c /src/service/logging.c /src/service/supervisor.c -o build/monitor-input-test -lcrypto
 build/monitor-input-test | tee artifacts/monitor-input-tests.log
 for option in VIRTIO_NET E1000 E1000E IGB IGC R8169 USB_XHCI_HCD USB_EHCI_HCD \
-    USB_OHCI_HCD USB_UHCI_HCD USB_STORAGE USB_UAS BLK_DEV_SD SATA_AHCI BLK_DEV_NVME; do
+    USB_OHCI_HCD USB_UHCI_HCD USB_STORAGE USB_UAS BLK_DEV_SD SATA_AHCI BLK_DEV_NVME \
+    USB_NET_CDCETHER USB_NET_CDC_NCM USB_RTL8152 USB_NET_AX8817X USB_NET_AX88179_178A; do
     grep -qx "CONFIG_${option}=y" artifacts/rommon-kernel.config || {
         echo "Missing recovery driver: $option" >&2; exit 1;
     }
 done
 test ! -e build/rommon-root/target/bin/sh
-grep -qx '#define NUM_APPLETS 3' build/rommon-root/build/busybox-*/include/applet_tables.h
+test ! -e build/rommon-root/target/bin/busybox
 sbverify --cert build/keys/firmware.crt artifacts/rommon.efi
 sbverify --cert build/keys/firmware.crt artifacts/witness.efi
 python3 boot/tests/qemu-boot.py --case trusted

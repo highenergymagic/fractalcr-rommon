@@ -19,7 +19,7 @@ fi
 
 # The .linux section already contains initramfs. There is no external initrd.
 printf 'console=ttyS0,115200 rdinit=/init panic=-1 quiet loglevel=0\0' > build/rommon.cmdline
-printf 'ID=fractalcr-rommon\nNAME="FractalCR ROM Monitor"\nVERSION_ID=0.5\n' > build/rommon.osrel
+printf 'ID=fractalcr-rommon\nNAME="FractalCR ROM Monitor"\nVERSION_ID=%s\n' "$(cat /src/VERSION)" > build/rommon.osrel
 objcopy \
     --add-section .osrel=build/rommon.osrel --change-section-vma .osrel=0x20000 \
     --add-section .cmdline=build/rommon.cmdline --change-section-vma .cmdline=0x30000 \

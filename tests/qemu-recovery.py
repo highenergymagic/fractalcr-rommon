@@ -200,7 +200,12 @@ try:
         child.sendline("boot")
         child.expect("Receiving system.bin from 10.0.2.99")
         child.sendcontrol("c")
-        child.expect("Operation aborted or timed out.")
+        child.expect_exact("% Boot sequence failed; remaining in ROM Monitor.", timeout=10)
+        # Cancellation must stop the whole BOOT list, not try the valid local
+        # fallback. Check the actual native TFTP error and absence of handoff.
+        assert "% TFTP reception failed." in child.before, child.before
+        assert "Loading bootflash:system.bin" not in child.before, child.before
+        assert "Booting authenticated system image" not in child.before, child.before
         child.expect(prompt)
         check("missing TFTP file failed; Ctrl-C aborted the entire ordered boot sequence")
         cmd("boot tftp:", "AUTHENTICATION FAILED")

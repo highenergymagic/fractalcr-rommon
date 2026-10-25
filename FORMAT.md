@@ -47,7 +47,7 @@ an epoch, build ROMMON with a higher floor under new firmware/release keys,
 qualify recovery, and complete authenticated dbx/KEK/PK rotation to reject old
 ROMMONs. A writable flash counter would be replayable, so it is not a trust
 anchor. Firmware resets or disabled Secure Boot defeat this chain's root of
-trust. A/B power-loss-safe installation remains a separate release gate.
+trust. Automatic A/B recovery after interrupted installation is unsupported.
 
 `bootflash:` (also accepted as `flash:`) and USB FAT volumes are mounted
 read-only by default. Recovery copy temporarily remounts bootflash writable,

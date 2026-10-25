@@ -208,7 +208,7 @@ SHA-256 pins. The Debian base image is digest-pinned; its package repositories
 are pinned to a dated Debian snapshot in `boot/debian.sources`. Changing that
 snapshot is an explicit source update. The [reproducibility workflow](https://github.com/highenergymagic/fractalcr-supervisor/blob/main/README.md) records
 and reuses the builder's immutable image ID and compares forced appliance builds
-byte for byte. It does not claim independent clean-room dependency reproduction.
+byte for byte using the existing dependency toolchain.
 
 ROMMON includes built-in virtio-net, e1000/e1000e/igb/igc, r8169, USB CDC
 Ethernet/NCM, RTL8152 and ASIX USB Ethernet, USB host/mass storage, AHCI and

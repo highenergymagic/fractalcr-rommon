@@ -81,6 +81,10 @@ development-image reports; signing with a different key changes the artifacts.
 
 ## Rotation and revocation
 
+UEFI uses four trust variables: PK identifies the platform owner, KEK authorizes
+signature-database updates, db contains accepted signers, and dbx records revoked
+signers or image hashes.
+
 The dedicated appliance firmware profile enrolls the firmware certificate as
 PK, KEK and db. This is the same ownership layout used by the QEMU fixtures.
 Do not apply its replacement updates to a general-purpose machine with unrelated
@@ -117,11 +121,10 @@ when creating a new vault, rebuild ROMMON, sign the fixed system at that epoch
 (`sign --security-epoch N`), qualify recovery, and complete firmware revocation.
 The signer defaults to the vault's floor and records the epoch in its receipt.
 Rotation refuses to lower the floor. Releases in the same epoch remain
-interchangeable; no writable automatic boot counter is claimed.
+interchangeable. The minimum epoch remains fixed until ROMMON is replaced.
 
 Legacy v1 trust profiles may be used only as the old identity for `rotation`.
-They cannot sign or build new v2 releases. Generate a new v2 vault rather than
-editing the old trust manifest to conceal its provenance. Until old ROMMON
+New v2 releases require a newly generated v2 vault. Until old ROMMON
 signers are revoked, older signed ROMMONs can still boot older system images.
 
 ## Validate the signing and rotation tools

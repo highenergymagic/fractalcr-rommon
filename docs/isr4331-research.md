@@ -22,8 +22,7 @@ UEFI Secure Boot policy
   -> if no entry boots, remain at recovery prompt
 ```
 
-A filename, successful download or printed checksum is not authorization.
-Only the embedded release key authenticates the `.bin` envelope; the kernel
+The embedded release key authenticates the `.bin` envelope; the kernel
 independently enforces the PE signature before handoff. Environment data cannot
 set a command line, install a key, disable signatures, or request legacy kexec.
 The exact authenticated payload is handed to the kernel via a sealed descriptor,
@@ -34,8 +33,8 @@ domain-separated RSA-2048/SHA-256 scheme.
 `verify` and recovery copy check the release envelope. PE acceptance and kernel
 format/architecture checks happen at boot. A release-signed but incompatible
 payload can therefore pass `verify` and still fail the handoff; the monitor
-reports the kernel's refusal. A signed platform/ABI manifest and early
-compatibility diagnostics remain work for the OS image format.
+reports the kernel's refusal. Compatibility checks occur at this stage; the
+envelope does not contain a separate platform/ABI manifest.
 
 The initial keys are development keys. Firmware signing and release signing
 use separate private keys, retained in the build volume. Firmware enrollment is
@@ -43,8 +42,9 @@ performed only in disposable OVMF variables by the tests. The public release
 key is compiled into the monitor. No checksum file on writable media acts as a
 trust root. The [release key workflow](release-key-management.md) adds public-only
 builds, offline signing, authenticated firmware-key rotation and signer revocation.
-Per-release antirollback counters, TPM attestation, unattended production
-provisioning and self-updating monitor slots are not implemented.
+Automatic rollback counters, TPM attestation, and ROMMON self-update are
+unsupported. System provisioning is described in the
+[deployment guide](https://github.com/highenergymagic/fractalcr/blob/main/os/docs/releases.md).
 
 ## Recovery workflows
 
@@ -65,15 +65,15 @@ failure before rename leaves the previous image in place.
 
 FAT metadata and commodity storage controllers do not provide a complete
 power-loss transaction guarantee. Use a new destination filename for updates;
-retain another working image and external recovery media. This implementation
-does not claim a tested A/B power-failure protocol.
+retain another working image and external recovery media. Updates do not
+provide automatic A/B recovery.
 
 ### Network recovery
 
 Set `ETHER_PORT`, `IP_ADDRESS`, `IP_SUBNET_MASK`, and, when needed,
 `DEFAULT_GATEWAY`. Set `TFTP_SERVER` and `TFTP_FILE` for the short `tftp:` form,
-or supply an IPv4 URL. Use `ping` to diagnose reachability, then boot or copy. Recovery uses static IPv4
-addresses independently of the system image's networking configuration.
+or supply an IPv4 URL. Use `ping` to diagnose reachability, then boot or copy.
+Recovery uses static IPv4 addresses independently of the system image's networking configuration.
 
 TFTP is only transport. Downloaded bytes remain untrusted until signature
 verification succeeds. Downloads and recovery copies have a 512 MiB cap and
@@ -88,18 +88,18 @@ values. A malformed slot is ignored; the newest valid slot wins. If neither
 is usable, compiled defaults select `bootflash:system.bin` with an interruption
 window. The checksum detects corruption, not malicious edits. None of these
 values can disable image authentication. The explicit 0x2142 recovery setting
-does bypass OS startup credentials for the physical operator, in the password-recovery procedure.
+enables physical-console password recovery without loading startup credentials.
 
 These are ROMMON settings, separate from the JSON OS `startup-config`.
 They live on bootflash so that array failure cannot prevent recovery.
 
 ## Supported hardware and restrictions
 
-Built-in Ethernet drivers: virtio-net, Intel e1000/e1000e/igb/igc and Realtek
-r8169 with its PHY driver. Storage: virtio block, AHCI/SATA, NVMe; USB
+Built-in Ethernet drivers: virtio-net, Intel e1000/e1000e/igb/igc, Realtek
+r8169, USB CDC Ethernet/NCM, RTL8152, and ASIX USB Ethernet. Storage: virtio block, AHCI/SATA, NVMe; USB
 xHCI/EHCI/OHCI/UHCI, bulk mass storage and UAS. No loadable modules or graphics
-console are included. Driver inclusion is not proof that every physical model
-works: hardware variants needing external firmware have not been qualified.
+console are included. Hardware variants requiring external firmware are
+unqualified.
 The automated recovery suite targets virtio-net, e1000 and QEMU xHCI mass
 storage. Physical hardware compatibility requires qualification on the target model.
 
@@ -109,9 +109,8 @@ a fixed recovery flag to the authenticated OS. It ignores startup configuration
 without deleting it, disables initial remote access, and permits physical-console
 credential repair. Restore 0x2102 for normal authenticated startup. See the
 [password-recovery procedure](https://github.com/highenergymagic/fractalcr/blob/main/os/docs/aaa-and-management.md).
-The monitor does not support expanded packages, arbitrary environment variables,
-an interactive register questionnaire, IOS routing commands, debugger memory
-writes, exFAT/NTFS, IPv6 or DHCP.
+Recovery storage supports FAT16/FAT32; exFAT and NTFS are unsupported. Recovery
+networking supports static IPv4; DHCP and IPv6 are unavailable in ROMMON.
 
 Boot-chain tests retain a small signed witness payload. The separate system
 image contains Docker, Kata, array configuration and the appliance CLI; its

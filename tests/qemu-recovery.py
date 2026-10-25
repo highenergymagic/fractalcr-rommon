@@ -194,7 +194,7 @@ try:
                      "DEFAULT_GATEWAY=10.0.2.2", "TFTP_SERVER=10.0.2.2",
                      "TFTP_FILE=recovery-tampered.bin"]:
             cmd(text)
-        cmd("ping 10.0.2.2", "0% packet loss")
+        cmd("ping 10.0.2.2", "Success rate is 100 percent (3/3)")
         cmd("verify tftp://10.0.2.2/not-present.bin", "TFTP reception failed.")
         cmd("BOOT=tftp://10.0.2.99/system.bin;bootflash:system.bin")
         child.sendline("boot")

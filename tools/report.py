@@ -41,8 +41,8 @@ for case in cases:
     results.append(result)
 assert "VERIFIER_TESTS_OK" in (root / "verifier-tests.log").read_text()
 assert "MONITOR_INPUT_TESTS_OK" in (root / "monitor-input-tests.log").read_text()
-assert (root / "service-graph-tests.log").read_text().count("PASS ") == 6
-assert (root / "service-graph-musl-tests.log").read_text().count("PASS ") == 6
+assert (root / "service-graph-tests.log").read_text().count("PASS ") == 7
+assert (root / "service-graph-musl-tests.log").read_text().count("PASS ") == 7
 assert (root / "control-tests.log").read_text().count("PASS ") == 3
 assert (root / "control-musl-tests.log").read_text().count("PASS ") == 3
 if a.native:

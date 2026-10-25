@@ -5,10 +5,9 @@ serial recovery CLI, USB storage and Ethernet/TFTP recovery. The signed
 `system.bin` produced by this component is a tiny embedded-root boot witness.
 The [OE container OS](https://github.com/highenergymagic/fractalcr/blob/main/os/README.md) produces the full appliance image separately.
 
-The [ISR4331 research and recovery contract](docs/isr4331-research.md) explains
-the Cisco source evidence, command wording, boot flow, signature checks,
-recovery procedures and intentional differences. [FORMAT.md](FORMAT.md)
-specifies our image envelope and trust chain.
+The [Recovery architecture](docs/isr4331-research.md) describes boot flow,
+authentication, device support, and saved settings. [Image format](FORMAT.md)
+specifies the system-image envelope and trust chain.
 
 Use a recursive [integration checkout](https://github.com/highenergymagic/fractalcr)
 and run commands from its root. This repository alone does not include the shared
@@ -16,9 +15,8 @@ supervisor or integration build tools. A **boot witness** is a tiny test payload
 that proves authenticated handoff; it does not contain Docker or the appliance CLI.
 Use the OE system image for an actual appliance.
 
-Artifact sizes and test results depend on the build. Consult the generated
-`validation.md` and hash-bound JSON reports in the exported artifact directory,
-not a historical size table.
+The exported artifact directory contains `validation.md` and JSON test reports
+bound to the tested image hashes.
 
 ## Build and run
 
@@ -33,9 +31,9 @@ From Windows, using your Linux Docker host through SSH and passwordless `doas`
 .\boot\run.ps1
 ```
 
-Build outputs, serial transcripts and hash-bound test results are exported to
-`out/carbon/boot`; `validation.md` summarizes results only after their hashes match the
-current images. The wrapper supports `-Action Build`, `-Action Test`, and
+Export prints the destination containing build outputs, serial transcripts,
+and test reports. `validation.md` summarizes results after their hashes match
+the current images. The wrapper supports `-Action Build`, `-Action Test`, and
 `-Action Export`. Build and Test start a detached remote job; inspect its status
 and log through `tools/remote-build.ps1`. A lock prevents concurrent builds.
 Pass `-BuildHost` to select another SSH alias with passwordless `doas`.
@@ -46,7 +44,7 @@ Tests enroll the development firmware certificate only in disposable OVMF
 variables; they do not modify the host firmware.
 The first build generates development keys in that host's volume. To use a
 separate exported set, pass `-ArtifactDirectory PATH` to `boot/run.ps1`. The
-wrapper's default export directory is `out/carbon/boot` regardless of host name.
+export destination is fixed by the wrapper regardless of host name.
 
 The interactive VM keeps its changes in `flash-interactive.img`. Reset works
 inside the VM, and `sync` persists across subsequent launches. `-Fresh` replaces
@@ -88,18 +86,20 @@ are unsupported.
 
 ## USB recovery
 
-Attach a disposable recovery disk exported by the tests:
+### Prerequisites
 
-```powershell
-.\boot\run.ps1 -UsbImage .\out\carbon\boot\usb-usb-boot.img
-```
+Use FAT16/FAT32 USB media containing a `system.bin` authenticated by the keys in
+the installed ROMMON. Connect the serial console and interrupt autoboot with
+Ctrl-C or BREAK. Insert the USB device and use `dev` to identify its filesystem.
+USB numbering follows discovery order; the example assumes `usb0:`.
 
-Then:
+### Procedure
 
 ```text
 dev
 dir usb0:
 copy usb0:system.bin bootflash:recovered.bin
+verify bootflash:recovered.bin
 BOOT=bootflash:recovered.bin;bootflash:system.bin
 confreg 0x2102
 sync
@@ -107,21 +107,25 @@ reset
 ```
 
 You can also `boot usb0:system.bin` directly without writing internal storage.
-USB volumes support FAT16/FAT32. Internal recovery flash is identified by its
-`FRFLASH` FAT label. Other datastore disks are not mounted or formatted.
+Internal recovery flash is identified by its `FRFLASH` FAT label. Other datastore
+disks are not mounted or formatted.
+
+### Verification
+
+Before resetting, use `verify bootflash:recovered.bin` to check the copied envelope.
+On restart, confirm that ROMMON selects `recovered.bin` and completes authenticated
+handoff. Keep the original image until the replacement boots successfully.
 
 ## Network recovery
 
-QEMU's user network can serve the exported image directory without opening
-host ports:
+### Prerequisites
 
-```powershell
-.\boot\run.ps1 -TftpRoot .\out\carbon\boot
-# An emulated Intel adapter:
-.\boot\run.ps1 -TftpRoot .\out\carbon\boot -NetworkAdapter e1000
-```
+Provide a reachable IPv4 TFTP server with the matching signed system image.
+Identify the recovery adapter using `dev`. Replace the example addresses and
+filename below with the recovery network's values. The example uses the QEMU
+user-network gateway and its built-in TFTP server.
 
-At the monitor:
+### Procedure
 
 ```text
 dev
@@ -133,6 +137,7 @@ TFTP_SERVER=10.0.2.2
 TFTP_FILE=system.bin
 ping 10.0.2.2
 copy tftp: bootflash:network.bin
+verify bootflash:network.bin
 BOOT=bootflash:network.bin;bootflash:system.bin
 sync
 boot
@@ -141,6 +146,26 @@ boot
 `boot tftp:` boots directly from RAM; `tftp://IPv4/path` is also accepted.
 Only static IPv4 is implemented. Downloads and recovery copies are capped at
 512 MiB; network operations have a 120-second deadline and Ctrl-C cancellation.
+
+### Verification
+
+Use `verify bootflash:network.bin` to check the installed envelope. The `boot`
+command additionally checks the kernel's PE signature. If transfer or verification
+fails, inspect network settings and `show logging recovery-network`; retain the
+known-good boot image.
+
+## Test recovery in QEMU
+
+Set `ARTIFACT_DIRECTORY` to the exported ROMMON artifacts. The USB test image is
+a disposable recovery fixture; it is not installation media.
+
+```powershell
+.\boot\run.ps1 -ArtifactDirectory ARTIFACT_DIRECTORY -UsbImage ARTIFACT_DIRECTORY\usb-usb-boot.img
+.\boot\run.ps1 -ArtifactDirectory ARTIFACT_DIRECTORY -TftpRoot ARTIFACT_DIRECTORY
+.\boot\run.ps1 -ArtifactDirectory ARTIFACT_DIRECTORY -TftpRoot ARTIFACT_DIRECTORY -NetworkAdapter e1000
+```
+
+QEMU serves the selected TFTP directory without opening host network ports.
 
 ## Validation
 
@@ -164,8 +189,8 @@ The automated suite exercises:
 Native Windows QEMU can independently boot the exported files:
 
 ```powershell
-python .\boot\tests\native-smoke.py
-python .\boot\tools\report.py --artifacts .\out\carbon\boot --native
+python .\boot\tests\native-smoke.py --artifacts ARTIFACT_DIRECTORY
+python .\boot\tools\report.py --artifacts ARTIFACT_DIRECTORY --native
 ```
 
 The Linux tests use TCG, so the Docker build host does not need `/dev/kvm`, privileged
@@ -185,8 +210,9 @@ snapshot is an explicit source update. The [reproducibility workflow](https://gi
 and reuses the builder's immutable image ID and compares forced appliance builds
 byte for byte. It does not claim independent clean-room dependency reproduction.
 
-ROMMON includes built-in virtio-net, e1000/e1000e/igb/igc, r8169, USB host/mass
-storage, AHCI and NVMe drivers. No graphics console, loadable modules or Unix
+ROMMON includes built-in virtio-net, e1000/e1000e/igb/igc, r8169, USB CDC
+Ethernet/NCM, RTL8152 and ASIX USB Ethernet, USB host/mass storage, AHCI and
+NVMe drivers. No graphics console, loadable modules or Unix
 shell is included. Recovery networking uses native socket and interface APIs; BusyBox is disabled.
 The host OS uses its own glibc-based OE userspace; ROMMON retains musl. Both
 compile the same small service supervisor. Recovery storage, networking,

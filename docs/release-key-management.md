@@ -4,10 +4,16 @@ Development and release builds use separate trust and Docker volumes. Release
 builders receive public certificates and keys only. The offline signing station
 holds encrypted PKCS#8 private keys; decrypted PE-signing material is passed to
 the signer through a sealed memory file descriptor and is never written to the
-builder volume. Run commands from a recursive integration checkout. This is an optional
-operator-managed production-signing procedure; normal development builds do not
-require a vault or HSM. Tools run on Linux with Python cryptography, OpenSSL,
-sbsigntool, efitools and faketime.
+builder volume. This procedure is for operators who manage their own signing
+identity. Published development images use the development-key workflow instead.
+
+## Prerequisites
+
+Use a recursive integration checkout and a Linux workstation with Python
+cryptography, OpenSSL, sbsigntool, efitools, and faketime. Prepare a separate
+offline signing station and encrypted backup storage.
+
+## Create and back up the signing keys
 
 Create the vault on the offline station, outside the source checkout:
 
@@ -24,7 +30,9 @@ Only the `public/` subdirectory goes to the build workstation. Record and compar
 the firmware-certificate and release-key fingerprints through a separate trusted
 channel when transferring the bundle.
 
-Public-only builds on your Linux SSH host (replace `YOUR_BUILD_HOST` and the
+## Build with public trust material
+
+Run public-only builds on your Linux SSH host (replace `YOUR_BUILD_HOST` and the
 example `C:\release-public` path with your public trust directory):
 
 ```powershell
@@ -41,6 +49,8 @@ and development mode refuses to generate keys in a production trust volume.
 `signing-request.json` explicitly labels outputs as pending offline signatures.
 An unsigned build is not a bootable release or a completed qualification.
 
+## Sign the reviewed artifacts
+
 Review the build inputs and qualification evidence. Transfer the unsigned
 `rommon.unsigned.efi` and `system.unsigned.efi` plus their reviewed SHA-256 values
 to the offline station. Sign them separately:
@@ -54,7 +64,11 @@ The signer checks the input hash, verifies that PE signing preserved the reviewe
 payload, verifies the PE signature, and writes an audit entry and receipt. System
 signing also adds the independent release envelope required by ROMMON. Outputs
 are created exclusively: existing signed artifacts are not overwritten. Verify
-the returned artifacts on the build/release workstation using only public trust:
+the returned artifacts using the following procedure.
+
+## Verify and qualify the signed images
+
+On the build/release workstation, use only public trust:
 
 ```
 python3 tools/release.py verify --public /release-public --kind rommon --input rommon.efi --unsigned rommon.unsigned.efi
@@ -109,6 +123,8 @@ Legacy v1 trust profiles may be used only as the old identity for `rotation`.
 They cannot sign or build new v2 releases. Generate a new v2 vault rather than
 editing the old trust manifest to conceal its provenance. Until old ROMMON
 signers are revoked, older signed ROMMONs can still boot older system images.
+
+## Validate the signing and rotation tools
 
 The [UEFI Secure Boot specification](https://uefi.org/specs/UEFI/2.10/32_Secure_Boot_and_Driver_Signing.html)
 defines authenticated PK/KEK/db/dbx updates. `boot/tests/test-release.py` tests

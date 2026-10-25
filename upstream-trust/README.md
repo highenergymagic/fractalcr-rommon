@@ -5,8 +5,7 @@
 [clearsigned release checksum](https://buildroot.org/downloads/buildroot-2025.02.18.tar.xz.sign)
 links to the [maintainer's published key](https://gitlab.com/-/snippets/4836881/raw/main/arnout@rnout.be.asc).
 That signature was verified against the downloaded archive before pinning it.
-Initial key acquisition used those HTTPS publications; no personal or offline
-identity verification is claimed.
+Initial key provenance is limited to those HTTPS publications.
 
 The dependency updater pins this fingerprint and rejects a signature/key change
 until it is explicitly reviewed. It does not use automatic keyserver lookup or

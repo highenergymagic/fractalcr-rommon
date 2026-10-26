@@ -49,7 +49,7 @@ build_kernel() {
     "$kernel_source/scripts/config" --file "$output/.config" \
         --set-str INITRAMFS_SOURCE "$initramfs" \
         --set-str SYSTEM_TRUSTED_KEYS /work/build/keys/firmware.crt \
-        --set-str LOCALVERSION "-security1-fractalcr-$name"
+        --set-str LOCALVERSION "-security2-fractalcr-$name"
     make -C "$kernel_source" O="$output" ARCH=x86_64 CROSS_COMPILE="$toolchain" olddefconfig
     for option in EFI_STUB KEXEC_FILE KEXEC_SIG_FORCE KEXEC_BZIMAGE_VERIFY_SIG \
         SYSTEM_TRUSTED_KEYRING LOCK_DOWN_KERNEL_FORCE_INTEGRITY; do

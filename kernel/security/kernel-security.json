@@ -2,7 +2,7 @@
   "schema": 1,
   "base": "6.12.112-cip33",
   "stable_updates_through": "6.12.114",
-  "local_suffix": "-security1",
+  "local_suffix": "-security2",
   "scope": "Stable updates except version label and excluded Renesas ARM/DRM files documented below. Not an official newer CIP release.",
   "patches": [
     {
@@ -29,6 +29,15 @@
         "drivers/irqchip/irq-renesas-rzg2l.c": "Conflicting CIP ARM changes; x86-64 target only",
         "drivers/gpu/drm/renesas/rz-du/rzg2l_mipi_dsi.c": "Already applied in CIP; DRM disabled on this appliance"
       }
+    }
+  ],
+  "backports": [
+    {
+      "file": "CVE-2026-31692-peer-netns.patch",
+      "sha256": "eac497b45b2d8bed9ff743f6353e80e0e9c5cc79e03bde28ba8c7a76b1a2881f",
+      "reference_url": "https://lists.openwall.net/linux-kernel/2026/06/17/510",
+      "upstream_fix": "7b735ef81286007794a227ce2539419479c02a5f",
+      "scope": "6.12-compatible capability check in veth, vxcan, and netkit peer creation"
     }
   ]
 }

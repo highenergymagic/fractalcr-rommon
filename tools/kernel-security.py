@@ -22,14 +22,14 @@ def prepare(work, security):
     if version != manifest['base']:
         raise ValueError('kernel security updates do not match CIP source version')
     patches = []
-    for entry in manifest['patches']:
+    for entry in manifest['patches'] + manifest.get('backports', []):
         name = entry['file']
         if Path(name).name != name:
             raise ValueError('invalid kernel patch filename')
         data = (security/name).read_bytes()
         if hashlib.sha256(data).hexdigest() != entry['sha256']:
             raise ValueError('kernel security patch checksum mismatch')
-        patches.append(gzip.decompress(data))
+        patches.append(gzip.decompress(data) if name.endswith('.gz') else data)
     if source.is_symlink() or not source.is_dir() or target.is_symlink():
         raise ValueError('kernel source directories must not be links')
     # Recreate from the archive-verified source every time. A prior patched tree

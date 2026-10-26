@@ -59,9 +59,11 @@ build_kernel() {
     done
     if [[ "$name" == rommon ]]; then
         for option in SLAB_FREELIST_RANDOM SLAB_FREELIST_HARDENED HARDENED_USERCOPY \
-            FORTIFY_SOURCE INIT_ON_ALLOC_DEFAULT_ON LIST_HARDENED SECURITY_DMESG_RESTRICT; do
+            FORTIFY_SOURCE INIT_ON_ALLOC_DEFAULT_ON LIST_HARDENED SECURITY_DMESG_RESTRICT \
+            TIGON3 BNX2 BNX2X BNXT IXGBE I40E MLX4_EN MLX5_CORE MLX5_CORE_EN ENA_ETHERNET VMXNET3 \
+            MEGARAID_SAS SCSI_MPT3SAS SCSI_MPI3MR FUSION_SAS SCSI_AACRAID SCSI_HPSA SCSI_SMARTPQI SCSI_ISCI SCSI_VIRTIO; do
             grep -qx "CONFIG_${option}=y" "$output/.config" || {
-                echo "Required hardening option missing: $option" >&2; exit 1;
+                echo "Required ROMMON kernel option missing: $option" >&2; exit 1;
             }
         done
     fi

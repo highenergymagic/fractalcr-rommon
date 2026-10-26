@@ -2,7 +2,7 @@
 #include "../rommon/monitor.c"
 int secure_boot(void) { return 1; }
 int verified_image(const char *path) { (void)path; return -1; }
-void boot_image(int fd, int ignore) { (void)fd; (void)ignore; }
+void boot_image(int fd, int ignore, const char *image) { (void)fd; (void)ignore; (void)image; }
 int write_all(int fd, const void *data, size_t length) {
  const unsigned char *p = data;
  while (length) {

@@ -23,6 +23,12 @@ if os.environ.get('FCR_SANITIZE') == '1':
     compiler += ['-g', '-fsanitize=address,undefined', '-fno-omit-frame-pointer']
 subprocess.run(compiler, check=True)
 
+def verify(path):
+    result = subprocess.run([str(binary), "--verify", str(path)], capture_output=True, timeout=10)
+    # Crashes and sanitizer failures are defects, not successful rejection.
+    assert result.returncode >= 0 and b'AddressSanitizer' not in result.stderr and b'runtime error:' not in result.stderr, (path, result.returncode, result.stderr)
+    return result
+
 def signed(payload, signing_key=key, epoch=1):
     body = payload + epoch.to_bytes(8, 'big')
     return body + signing_key.sign(DOMAIN + body, padding.PKCS1v15(), hashes.SHA256()) + MAGIC
@@ -50,21 +56,21 @@ with tempfile.TemporaryDirectory() as directory:
     for name, (data, expected) in cases.items():
         path = Path(directory) / name
         path.write_bytes(data)
-        result = subprocess.run([str(binary), "--verify", str(path)], capture_output=True, timeout=10)
+        result = verify(path)
         assert (result.returncode == 0) == expected, (name, result.stdout, result.stderr)
         print(f"PASS {name}")
     link = Path(directory) / "symlink"
     link.symlink_to(Path(directory) / "valid")
-    result = subprocess.run([str(binary), "--verify", str(link)], capture_output=True, timeout=10)
+    result = verify(link)
     assert result.returncode != 0
     print("PASS symlink rejected")
     oversized = Path(directory) / 'oversized'
     with oversized.open('wb') as stream:stream.truncate(512*1024*1024+1)
-    result = subprocess.run([str(binary), '--verify', str(oversized)], capture_output=True, timeout=10)
+    result = verify(oversized)
     assert result.returncode != 0
     fifo = Path(directory) / 'fifo'
     os.mkfifo(fifo)
-    result = subprocess.run([str(binary), '--verify', str(fifo)], capture_output=True, timeout=10)
+    result = verify(fifo)
     assert result.returncode != 0
     print('PASS oversize and FIFO rejected before reading')
     if os.environ.get('FCR_SANITIZE') == '1':
@@ -75,7 +81,7 @@ with tempfile.TemporaryDirectory() as directory:
             offset = rng.randrange(len(data))
             data[offset] ^= 1 << rng.randrange(8)
             path.write_bytes(data)
-            result = subprocess.run([str(binary), '--verify', str(path)], capture_output=True, timeout=10)
+            result = verify(path)
             assert result.returncode > 0 and b'AddressSanitizer' not in result.stderr and b'runtime error:' not in result.stderr, (offset, result.returncode, result.stderr)
         print('PASS 512 deterministic signed-envelope mutations under ASAN/UBSAN')
 print("VERIFIER_TESTS_OK")
